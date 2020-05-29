@@ -1,4 +1,4 @@
-CC   = gcc
+CC   = gcc -Wno-nullability-completeness
 OPTS = -Wall
 
 all: server client

@@ -21,6 +21,7 @@ int main(int argc, char *argv[]){
     sprintf(message, "hello world");
     rc = UDP_Write(sd, &addr, message, BUFFER_SIZE); //write message to server@specified-port
     printf("CLIENT:: sent message (%d)\n", rc);
+
     if (rc > 0) {
 	    int rc = UDP_Read(sd, &addr2, buffer, BUFFER_SIZE); //read message from ...
 	    printf("CLIENT:: read %d bytes (message: '%s')\n", rc, buffer);
