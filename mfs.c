@@ -11,7 +11,7 @@ MFS_Init() takes a host name and port number and uses those to find the server
 exporting the file system.*/
 
 int sd; // fd which is a soccket
-int client_port_num = 20000;
+int client_port_num = 20000; //TODO: check client port num
 struct sockaddr_in addr, addr2; //用于发消息 & 收消息的socket
 
 int MFS_Init(char *hostname, int port){
@@ -96,6 +96,7 @@ int MFS_Write(int inum, char *buffer, int block){
 
   int rc = UDP_Write(sd, &addr, cmd, CMD_SIZE);
   if (rc > 0) {
+      //这里不能叫buffer， 换个名字， maybe global variable
 	    int rc = UDP_Read(sd, &addr2, buffer, BUFFER_SIZE); //read message from ...
   }
   return atoi(buffer);

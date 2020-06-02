@@ -18,14 +18,22 @@ int main(int argc, char *argv[]){
     assert(rc == 0);
 
     char message[BUFFER_SIZE];
-    sprintf(message, "hello world");
+    sprintf(message, "hello##2##fileName");
     rc = UDP_Write(sd, &addr, message, BUFFER_SIZE); //write message to server@specified-port
     printf("CLIENT:: sent message (%d)\n", rc);
 
-    if (rc > 0) {
-	    int rc = UDP_Read(sd, &addr2, buffer, BUFFER_SIZE); //read message from ...
-	    printf("CLIENT:: read %d bytes (message: '%s')\n", rc, buffer);
-    }
+    // sprintf(message, "hello world2");
+    // rc = UDP_Write(sd, &addr, message, BUFFER_SIZE); //write message to server@specified-port
+    // printf("CLIENT:: sent message (%d)\n", rc);
+
+    // sprintf(message, "hello world3");
+    // rc = UDP_Write(sd, &addr, message, BUFFER_SIZE); //write message to server@specified-port
+    // printf("CLIENT:: sent message (%d)\n", rc);
+
+    // if (rc > 0) {
+	  //   int rc = UDP_Read(sd, &addr2, buffer, BUFFER_SIZE); //read message from ...
+	  //   printf("CLIENT:: read %d bytes (message: '%s')\n", rc, buffer);
+    // }
 
     return 0;
 }
