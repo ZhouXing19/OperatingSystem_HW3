@@ -7,8 +7,8 @@ all: server client myServer
 server: server.o udp.o
 	$(CC) -o server server.o udp.o 
 
-client: client.o udp.o
-	$(CC) -o client client.o udp.o 
+client: client.o udp.o mfs.o
+	$(CC) -o client client.o udp.o mfs.o
 
 myServer: myServer.o udp.o
 	$(CC) -o myServer myServer.o udp.o 

@@ -3,7 +3,6 @@
 
 #define MFS_DIRECTORY    (0)
 #define MFS_REGULAR_FILE (1)
-
 #define MFS_BLOCK_SIZE   (4096)
 
 typedef struct __MFS_Stat_t {

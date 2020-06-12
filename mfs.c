@@ -83,7 +83,7 @@ int MFS_Write(int inum, char *buffer, int block){
   char para1[sizeof(inum)+1];
   sprintf(para1, "%d", inum);
   char para3[sizeof(block)+1];
-  sprintf(para3, "%d", inum);
+  sprintf(para3, "%d", block);
 
   strcat(cmd, "Write");
   strcat(cmd, "##");
@@ -151,6 +151,8 @@ int MFS_Creat(int pinum, int type, char *name){
   strcat(cmd, name);
   strcat(cmd, "##");
   
+  //rc = UDP_Write(sd, &addr, message, BUFFER_SIZE);
+
   int rc = UDP_Write(sd, &addr, cmd, CMD_SIZE);
   if (rc > 0) {
 	    int rc = UDP_Read(sd, &addr2, buffer, BUFFER_SIZE); //read message from ...

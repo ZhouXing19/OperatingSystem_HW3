@@ -30,7 +30,7 @@ int fd;
 // inode id: 1-4096 -> 4 bytes(root inode #1)  -------------------------- 1-4
 // type: 0 or 1 -> 4 bytes   -------------------------------------------- 5-8
 // size: 0-40,000 -> 8 bytes -------------------------------------------- 9-16
-// block field nums: 0 -10 -> 4 bytes ----------------------------------- 17-20
+// block field nums: 0 - 9 -> 4 bytes ----------------------------------- 17-20
 // 10 pointers(each is a block id 0-4095) -> 4x10 bytes ----------------- 21-60
 
 // Part 3:
@@ -177,6 +177,7 @@ int Creat(char* strs[ARG_NUM]){
   if(atoi(c) == 0) return -1;
   free(c);
 
+  printf("At least root dir is here");
   // 2. check all blocks to see if name exists
   // 2-1 go to the pinode structure
   int inode_offset = INODE_ARRAY_OFFSET+ (pinum-1) * INODE_SIZE;
@@ -253,10 +254,6 @@ int Creat(char* strs[ARG_NUM]){
   return 0;
 }
 
-int Stat(char* strs[ARG_NUM]){
-  return 0;
-}
-
 int check_inum(int inum){
   // -1: invalid; i: exist; 0: not exist
   if(inum > BIT_MAP_SIZE) return -1;
@@ -264,6 +261,39 @@ int check_inum(int inum){
   char *c = (char*) calloc(1, sizeof(char));
   int res = read(fd, c, 1); 
   return atoi(c);
+}
+
+// ------------------------------------------------------------------------Stat
+int Stat(char* strs[ARG_NUM]){
+  int inum = atoi(strs[1]);
+  // 1. check if inum exists in bit map
+  // 2. if yes, go to inode array
+  // 3. check if it is a file or block
+  // 4. get type + size+ blocks
+  int check_inum_res = check_inum(inum);
+  if(check_inum_res != 1){
+    return -1; // TODO: make this a message
+  }
+
+  //move to the inode pos in inode array
+  int inode_offset = INODE_ARRAY_OFFSET + (inum-1) * INODE_SIZE;
+  // every inode structure 60 byte
+  // inode id: 1-4096 -> 4 bytes(root inode #1)  -------------------------- 1-4
+  // type: 0 or 1 -> 4 bytes   -------------------------------------------- 5-8
+  // size: 0-40,000 -> 8 bytes -------------------------------------------- 9-16
+  // block field nums: 0 -10 -> 4 bytes ----------------------------------- 17-20
+  // 10 pointers(each is a block id 0-4095) -> 4x10 bytes ----------------- 21-60
+  lseek(fd, inode_offset+ID_SIZE, SEEK_SET);
+  // read in type
+  char * type = (char*) calloc(ID_SIZE, sizeof(char));
+  read(fd, type, ID_SIZE);
+  // read in size
+  char * size = (char*) calloc(ID_SIZE*2, sizeof(char));
+  read(fd, size, ID_SIZE*2);
+  // read in block number
+  char * block_num = (char*) calloc(ID_SIZE, sizeof(char));
+  read(fd, block_num, ID_SIZE);
+  return 0;
 }
 
 int check_block(int block_no){
@@ -321,6 +351,71 @@ int Write(char* strs[ARG_NUM]){
   int inum = atoi(strs[1]);
   char * buffer = strs[2];
   int block_no = atoi(strs[3]);
+
+  int check_inum_res = check_inum(inum);
+  if(check_inum_res != 1) return -1; // invalid inode
+
+  
+  int inode_offset = INODE_ARRAY_OFFSET + (inum-1) * INODE_SIZE;
+  lseek(fd, inode_offset+ID_SIZE, SEEK_SET);
+  // check type
+  char * type = (char*) calloc(ID_SIZE, sizeof(char));
+  read(fd, type, ID_SIZE);
+  if(atoi(type) == 0) return -1; // invalid type(should be a file not directory)
+  
+  // check block_id
+  lseek(fd, inode_offset+20+block_no*ID_SIZE, SEEK_SET);
+  char * block_id_str = (char*) calloc(ID_SIZE, sizeof(char));
+  read(fd, block_id_str, ID_SIZE);
+  int block_id;
+  if(strcmp("", block_id_str) == 0){ // block_no not assiged
+    block_id = create_block();
+    if(block_id == -1) return -1; // blocks used up error
+    // assign new data block to the file:
+    // 1. change size field
+    lseek(fd, inode_offset+ID_SIZE*2, SEEK_SET);
+    char * orginal_size_str = (char*) calloc(ID_SIZE*2, sizeof(char));
+    read(fd, orginal_size_str, ID_SIZE*2);
+    int original_size = atoi(orginal_size_str);
+    int new_size = original_size + BLOCK_SIZE;
+    //TODO: check the size+1
+    char new_size_str[sizeof(new_size)+1];
+    sprintf(new_size_str, "%d", new_size);
+    lseek(fd, inode_offset+ID_SIZE*2, SEEK_SET);
+    write(fd, buffer, strlen(buffer));
+
+    // 2. change block field number
+    lseek(fd, inode_offset+ID_SIZE*4, SEEK_SET);
+    char * original_block_num_str = (char*) calloc(ID_SIZE, sizeof(char));
+    read(fd, original_block_num_str, ID_SIZE);
+    int original_block_num = atoi(original_block_num_str);
+    int new_block_num = original_block_num+1;
+
+    char new_block_num_str[sizeof(new_size)+1];
+    sprintf(new_block_num_str, "%d", new_block_num);
+    lseek(fd, inode_offset+ID_SIZE*4, SEEK_SET);
+    write(fd, new_block_num_str, strlen(new_block_num_str));
+
+  // every inode structure 60 byte
+  // inode id: 1-4096 -> 4 bytes(root inode #1)  -------------------------- 1-4
+  // type: 0 or 1 -> 4 bytes   -------------------------------------------- 5-8
+  // size: 0-40,000 -> 8 bytes -------------------------------------------- 9-16
+  // block field nums: 0 -10 -> 4 bytes ----------------------------------- 17-20
+  // 10 pointers(each is a block id 0-4095) -> 4x10 bytes ----------------- 21-60
+
+    // 3. add block pointers
+    lseek(fd, inode_offset+20+ID_SIZE*block_no, SEEK_SET);
+    char block_id_str[sizeof(block_id)+1];
+    sprintf(block_id_str, "%d", block_id);
+    write(fd, block_id_str, strlen(block_id_str));
+  }
+  else{
+    block_id = atoi(block_id_str);
+  }
+
+  // move to the block
+  lseek(fd, BLOCK_ARRAY_OFFSET+block_id*BLOCK_SIZE, SEEK_SET);
+  write(fd, buffer, strlen(buffer));
   return 0;
 }
 
@@ -331,42 +426,49 @@ int Unlink(char* strs[ARG_NUM]){
 
 void parseMessage(char *message){
   char * strs[ARG_NUM];
-  printf("Message is %s\n", message);
   int i = 0;
   char * token = strtok(message, "##");
   while(token != NULL){
-    // printf("token1 is %s\n", token);
     strs[i] = malloc(strlen(token)+1);
-    // printf("token2 is %s\n", token);
     strcpy(strs[i], token);
-    // printf("token3 is %s\n", token);
     i++;
     token = strtok(NULL, "##");
   }
-  // for(int j=0; j<i; j++){
-  //   printf("%s\n", strs[j]);
-  // }
-  if(strcmp(strs[0], "Lookup")){
+  printf("i=%d\n", i);
+  for(int j=0; j<i; j++){
+    printf("token is %s\n", strs[j]);
+    printf("j=%d\n", j);
+  }
+  printf("Where are you");
+  if(strcmp(strs[0], "Lookup") == 0){
+    printf("Command is Lookup");
     Lookup(strs);
   }
-  else if(strcmp(strs[0], "Stat")){
+  else if(strcmp(strs[0], "Stat") == 0){
+    printf("Command is Stat");
     Stat(strs);
   }
-  else if(strcmp(strs[0], "Write")){
+  else if(strcmp(strs[0], "Write") == 0){
+    printf("Command is Write");
     Write(strs);
   }
-  else if(strcmp(strs[0], "Read")){
+  else if(strcmp(strs[0], "Read") == 0){
+    printf("Command is Read");
     Read(strs);
   }
-  else if(strcmp(strs[0], "Creat")){
+  else if(strcmp(strs[0], "Creat") == 0){
+    printf("Command is Creat");
     Creat(strs);
   }
-  else if(strcmp(strs[0], "Unlink")){
+  else if(strcmp(strs[0], "Unlink") == 0){
+    printf("Command is Unlink");
     Unlink(strs);
   }
   else{
+    printf("ELSE ===== ");
     // message format error, send back something?
   }
+  printf("Where are you??");
 }
 
 
@@ -405,36 +507,40 @@ int main(int argc, char *argv[]){
     return -1;
   }
 
-  // initImage(fd);
+  initImage(fd);
 
   printf("Server is listening\n");
 
-  // while(1){
-  //   struct sockaddr_in s;
-  //   char message[MESSAGE_SIZE];
-  //   int rc = UDP_Read(sd, &s, message, MESSAGE_SIZE);
-  //   if(rc > 0){
-  //     parseMessage(message);
-  //   }
-  // }
+  while(1){
+    struct sockaddr_in s;
+    char message[MESSAGE_SIZE];
+    int rc = UDP_Read(sd, &s, message, MESSAGE_SIZE);
+    if(rc > 0){
+      printf("SERVER RECEIVE Message is %s\n", message);
+      parseMessage(message);
+    }
+    printf("End of while");
+  }
 
   // 测试 write function 
-  int res;
-  char* buff = "Hello World!";
-  printf("size of char pointer is %d\n", (int)strlen(buff));
-  res = write(fd, buff, strlen(buff));
-  printf("write result is %d\n", res);
-  lseek(fd, 15, SEEK_SET);
-  buff = "test distance!";
-  res = write(fd, buff, strlen(buff));
+  // int res;
+  // char* buff = "Hello World!";
+  // printf("size of char pointer is %d\n", (int)strlen(buff));
+  // res = write(fd, buff, strlen(buff));
+  // printf("write result is %d\n", res);
+  // lseek(fd, 15, SEEK_SET);
+  // buff = "test distance!";
+  // res = write(fd, buff, strlen(buff));
 
-  lseek(fd, 15, SEEK_SET);
-  char *c = (char*) calloc(BLOCK_SIZE, sizeof(char));
-  res = read(fd, c, 15+strlen(buff));
-  printf("read result is %s\n", c);
+  // lseek(fd, 15, SEEK_SET);
+  // char *c = (char*) calloc(BLOCK_SIZE, sizeof(char));
+  // res = read(fd, c, 15+strlen(buff));
+  // printf("read result is %s\n", c);
 
-  char *d = (char*) calloc(ID_SIZE, sizeof(char));
-  int comp_result = strcmp("", d);
-  printf("compare result is %d", comp_result);
+  // lseek(fd, 55, SEEK_SET);
+  // char *d = (char*) calloc(ID_SIZE, sizeof(char));
+  // int comp_result = strcmp("", d);
+  
+  // printf("compare result is %d", comp_result);
 
 }
